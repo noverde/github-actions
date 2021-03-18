@@ -1,9 +1,5 @@
 #!/bin/bash
 
-if [ -z "$AWS_DEFAULT_REGION" ]; then
-    AWS_DEFAULT_REGION="us-east-1"
-fi
-
 mkdir -p ~/.aws
 
 cat >> ~/.aws/config <<-EOF
