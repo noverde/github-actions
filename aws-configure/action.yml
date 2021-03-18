@@ -20,9 +20,6 @@ inputs:
     description: 'AWS Region, e.g. us-east-2 (default: us-east-1)'
     required: false
     default: 'us-east-1'
-outputs:
-  aws-account-id:
-    description: 'The AWS account ID for the provided credentials'
 runs:
   using: "composite"
   steps:
