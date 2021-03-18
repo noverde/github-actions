@@ -1,0 +1,33 @@
+name: 'Configure AWS Credentials Action For GitHub Actions'
+description: 'Configure AWS credential environment variables for use in other GitHub Actions.'
+branding:
+  icon: 'cloud'
+  color: 'orange'
+inputs:
+  aws-access-key-id:
+    description: >-
+      AWS Access Key ID. This input is required if running in the GitHub hosted environment.
+      It is optional if running in a self-hosted environment that already has AWS credentials,
+      for example on an EC2 instance.
+    required: false
+  aws-secret-access-key:
+    description: >-
+      AWS Secret Access Key. This input is required if running in the GitHub hosted environment.
+      It is optional if running in a self-hosted environment that already has AWS credentials,
+      for example on an EC2 instance.
+    required: false
+  aws-region:
+    description: 'AWS Region, e.g. us-east-2 (default: us-east-1)'
+    required: false
+outputs:
+  aws-account-id:
+    description: 'The AWS account ID for the provided credentials'
+runs:
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/action.sh
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+        AWS_DEFAULT_REGION: ${{ inputs.aws-region }} 
