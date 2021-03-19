@@ -1,5 +1,8 @@
 #!/bin/bash
 
+coverage report
+coverage report | tail -n1
+
 # get total coverage
 COVERAGE=`coverage report | tail -n1 | grep -o '\d*%' | cut -f1 -d'%'`
 
