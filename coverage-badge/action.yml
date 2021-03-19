@@ -1,0 +1,10 @@
+name: 'Coverage badge for GitHub Actions'
+description: 'Created coverage badges for use in GitHub Actions.'
+branding:
+  icon: 'award'
+  color: 'green'
+runs:
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/action.sh
+      shell: bash
