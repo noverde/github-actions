@@ -2,6 +2,8 @@
 
 coverage report
 coverage report | tail -n1
+coverage report | tail -n1 | grep -o '\d*%'
+coverage report | tail -n1 | grep -o '\d*%' | cut -f1 -d'%'
 
 # get total coverage
 COVERAGE=`coverage report | tail -n1 | grep -o '\d*%' | cut -f1 -d'%'`
