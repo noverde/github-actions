@@ -10,6 +10,7 @@ inputs:
   amplify-dist-path:
     description: 'Application build path.'
     required: true
+    default: './public'
   amplify-artifacts:
     description: >-
       The source URL for this deployment, used when calling start deployment without create deployment.
@@ -18,7 +19,6 @@ inputs:
   amplify-branch:
     description: 'The name for the branch, for the job.'
     required: false
-    default: 'us-east-1'
 runs:
   using: "composite"
   steps:
