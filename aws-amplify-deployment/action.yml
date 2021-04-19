@@ -1,0 +1,31 @@
+name: 'aws-amplify-deployment'
+description: 'Deploys your AWS Amplify project using GitHub Actions.'
+branding:
+  icon: 'cloud'
+  color: 'orange'
+inputs:
+  amplify-app-id:
+    description: 'The unique ID for an Amplify app.'
+    required: true
+  amplify-dist-path:
+    description: 'Application build path.'
+    required: true
+  amplify-artifacts:
+    description: >-
+      The source URL for this deployment, used when calling start deployment without create deployment.
+      The source URL can be any HTTP GET URL that is publicly accessible and downloads a single .zip file.
+    required: true
+  amplify-branch:
+    description: 'The name for the branch, for the job.'
+    required: false
+    default: 'us-east-1'
+runs:
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/action.sh
+      shell: bash
+      env:
+        AMPLIFY_APP_ID: ${{ inputs.amplify-app-id }}
+        AMPLIFY_DIST_PATH: ${{ inputs.amplify-dist-path }}
+        AMPLIFY_ARTIFACTS: ${{ inputs.amplify-artifacts }}
+        AMPLIFY_BRANCH: ${{ inputs.amplify-branch }}
