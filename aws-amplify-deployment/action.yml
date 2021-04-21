@@ -9,7 +9,7 @@ inputs:
     required: true
   amplify-dist-path:
     description: 'Application build path.'
-    required: true
+    required: false
     default: './public'
   amplify-artifacts:
     description: >-

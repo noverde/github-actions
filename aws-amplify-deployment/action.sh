@@ -14,7 +14,7 @@ cd $AMPLIFY_DIST_PATH
 zip -r $GITHUB_SHA.zip *
 aws s3 cp $GITHUB_SHA.zip $AMPLIFY_SOURCE_URL
 
-#aws amplify start-deployment --app-id $AMPLIFY_APP_ID --branch-name $AMPLIFY_BRANCH --source-url $AMPLIFY_SOURCE_URL 
+aws amplify start-deployment --app-id $AMPLIFY_APP_ID --branch-name $AMPLIFY_BRANCH --source-url $AMPLIFY_SOURCE_URL 
 
 env
 echo $AMPLIFY_APP_ID
