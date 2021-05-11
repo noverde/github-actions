@@ -1,0 +1,29 @@
+name: 'aws-amplify-deployment'
+description: 'Deploys your AWS Amplify project using GitHub Actions.'
+branding:
+  icon: 'cloud'
+  color: 'orange'
+inputs:
+  amplify-app-id:
+    description: 'The unique ID for an Amplify app.'
+    required: true
+  amplify-bucket:
+    description: 'The artifacts S3 bucket.'
+    required: true
+  amplify-branch:
+    description: 'The name for the branch, for the job.'
+    required: false
+  amplify-dist-path:
+    description: 'Application build path.'
+    required: false
+    default: './public'
+runs:
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/action.sh
+      shell: bash
+      env:
+        AMPLIFY_APP_ID: ${{ inputs.amplify-app-id }}
+        AMPLIFY_BUCKET: ${{ inputs.amplify-bucket }}
+        AMPLIFY_BRANCH: ${{ inputs.amplify-branch }}
+        AMPLIFY_DIST_PATH: ${{ inputs.amplify-dist-path }}
