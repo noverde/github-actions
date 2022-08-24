@@ -1,0 +1,16 @@
+name: Set environment according to branch
+description: Define environment (development, staging, production) using github.ref context information
+
+outputs:
+  environment:
+    description: Target environment
+    value: ${{ steps.environment-selector.outputs.target-env }}
+
+runs:
+  using: composite
+  steps:
+    - id: environment-selector
+      shell: bash
+      run: ${{ github.action_path }}/action.sh
+      env:
+        GITHUB_REF: ${{ github.ref }}
