@@ -1,9 +1,10 @@
 name: Publish to GPR
+description: Publish gem to GPR
 
 inputs:
   gem_host_api_key:
+    description: GEM host API key
     required: true
-    type: string
 
 runs:
   using: composite
