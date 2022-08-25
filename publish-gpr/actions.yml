@@ -4,9 +4,6 @@ inputs:
   gem_host_api_key:
     required: true
     type: string
-  owner:
-    required: true
-    type: string
 
 run:
   steps:
@@ -15,4 +12,4 @@ run:
       run: ${{ github.action_path }}/action.sh
       env:
         GEM_HOST_API_KEY: "Bearer ${{inputs.gem_host_api_key}}"
-        OWNER: ${{ inputs.owner }}
+        OWNER: ${{ github.repository_owner }}
