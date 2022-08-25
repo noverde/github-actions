@@ -1,0 +1,16 @@
+name: Publish to GPR
+
+inputs:
+  gem_host_api_key:
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Publish to GPR
+      shell: bash
+      run: ${{ github.action_path }}/action.sh
+      env:
+        GEM_HOST_API_KEY: ${{ inputs.gem_host_api_key }}
+        OWNER: ${{ github.repository_owner }}
