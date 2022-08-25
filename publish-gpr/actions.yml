@@ -1,0 +1,18 @@
+name: Publish to GPR
+
+inputs:
+  gem_host_api_key:
+    required: true
+    type: string
+  owner:
+    required: true
+    type: string
+
+run:
+  steps:
+    - name: Publish to GPR
+      shell: bash
+      run: ${{ github.action_path }}/action.sh
+      env:
+        GEM_HOST_API_KEY: "Bearer ${{secrets.GIT_RUBY_PACKAGES_TOKEN}}"
+        OWNER: ${{ github.repository_owner }}
