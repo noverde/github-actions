@@ -2,14 +2,17 @@
 
 case "${GITHUB_REF}" in
 	"refs/heads/main")
-		ENV=production
+		ENV=prd;
+		ENVIRONMENT=production
 		;;
 	"refs/heads/staging")
-		ENV=staging
+		ENV=stg;
+		ENVIRONMENT=staging
 		;;
 	*)
-		ENV=development
+		ENV=dev;
+		ENVIRONMENT=development
 		;;
 esac
 
-echo "::set-output name=target-env::${ENV}"
+echo "::set-output name=target-env::${ENV} name=target-environment::${ENVIRONMENT}"
