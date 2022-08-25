@@ -5,7 +5,8 @@ inputs:
     required: true
     type: string
 
-run:
+runs:
+  using: composite
   steps:
     - name: Publish to GPR
       shell: bash
