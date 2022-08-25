@@ -4,7 +4,7 @@ description: Publish Ruby gems at RubyGems
 inputs:
   rubygems_api_key:
     required: true
-    type: string
+    description: RubyGems API KEY
 
 runs:
   using: composite
