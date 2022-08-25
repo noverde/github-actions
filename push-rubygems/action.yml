@@ -11,6 +11,6 @@ runs:
   steps:
     - name: Push to RubyGems
       shell: bash
-      runs: ${{ github.action_path }}/action.sh
+      run: ${{ github.action_path }}/action.sh
       env:
         RUBYGEMS_API_KEY: ${{ inputs.rubygems_api_key }}
