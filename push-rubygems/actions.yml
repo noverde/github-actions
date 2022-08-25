@@ -1,0 +1,16 @@
+name: Push to RubyGems
+description: Publish Ruby gems at RubyGems
+
+inputs:
+  rubygems_api_key:
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Push to RubyGems
+      shell: bash
+      runs: ${{ github.action_path }}/action.sh
+      env:
+        RUBYGEMS_API_KEY: ${{ inputs.rubygems_api_key }}
