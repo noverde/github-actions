@@ -1,0 +1,51 @@
+name: Filter OpenAPI specification templates
+description: Remove entries from an OpenAPI specification file according to a set of filters
+
+inputs:
+  file:
+    description: Input file to be filtered
+    required: true
+  paths:
+    description: Comma separated list of paths
+    required: false
+    default: ''
+  tags:
+    description: Comma separated list of tags
+    required: false
+    default: ''
+  exclude-extensions:
+    description: Flag indicating if extensions should be excluded or not (yes or no)
+    required: false
+    default: no
+
+outputs:
+  file:
+    description: Filtered file
+    value: ${{ steps.openapi-filter.outputs.file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check Python Installation
+      id: check-python
+      shell: bash
+      run: ${{ github.action_path }}/check_python.sh
+
+    - name: Install Python
+      if: steps.check-python.outputs.installed == 'no'
+      uses: actions/setup-python@v4.2.0
+      with:
+        python-version: 3.8
+
+    - name: Install OpenAPI filter
+      shell: bash
+      run: pip install ${{ github.action_path }}
+
+    - id: openapi-filter
+      shell: bash
+      run: ${{ github.action_path }}/action.sh
+      env:
+        FILE: ${{ inputs.file }}
+        PATHS: ${{ inputs.paths }}
+        TAGS: ${{ inputs.tags }}
+        EXCLUDE_EXT: ${{ inputs.exclude-extensions }}
