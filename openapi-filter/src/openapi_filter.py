@@ -44,12 +44,12 @@ def exclude_by_tag(spec, tags):
     tags = set(tags)
 
     for path, methods in spec.get("paths", {}).items():
-        filtered[path] = {}
-
         for method, attributes in methods.items():
             if tags & set(attributes.get("tags", [])):
                 continue
             else:
+                if path not in filtered:
+                    filtered[path] = {}
                 filtered[path][method] = attributes
 
     return {**spec, "paths": filtered}
