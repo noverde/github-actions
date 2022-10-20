@@ -4,7 +4,25 @@ import yaml
 
 
 def exclude_unused(spec):
-    # TODO remove schemas and examples without references
+    string = yaml.safe_dump(spec)
+    filtered = {}
+
+    for group, components in spec.get("components", {}).items():
+        if group == "securitySchemes":
+            filtered[group] = components
+            continue
+
+        for name, definition in components.items():
+            if f"'#/components/{group}/{name}'" in string:
+                if group not in filtered:
+                    filtered[group] = {}
+                filtered[group][name] = definition
+
+    if filtered:
+        spec["components"].update(filtered)
+    else:
+        spec.pop("components", None)
+
     return spec
 
 
@@ -66,6 +84,8 @@ def apply_filters(spec, paths=None, tags=None, extensions=False):
         spec = exclude_by_tag(spec, tags)
 
     if paths or tags:
+        spec = exclude_unused(spec)
+        # rule 2: double tap
         spec = exclude_unused(spec)
 
     return spec
