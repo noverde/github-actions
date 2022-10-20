@@ -20,6 +20,8 @@ def exclude_unused(spec):
 
     if filtered:
         spec["components"].update(filtered)
+    else:
+        spec.pop("components", None)
 
     return spec
 
