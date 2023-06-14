@@ -15,5 +15,5 @@ case "${GITHUB_REF}" in
 		;;
 esac
 
-echo "::set-output name=target-env::${ENV}"
-echo "::set-output name=target-environment::${ENVIRONMENT}"
+echo "target-env=${ENV}" >> $GITHUB_OUTPUT
+echo "target-environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT

@@ -21,4 +21,4 @@ fi
 
 openapi_filter $ARGS $FILE
 
-echo "::set-output name=file::$OUT"
+echo "file=$OUT" >> $GITHUB_OUTPUT

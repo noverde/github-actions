@@ -7,4 +7,4 @@ else
 	PYTHON_INSTALLED="no"
 fi
 
-echo "::set-output name=installed::$PYTHON_INSTALLED"
+echo "installed=$PYTHON_INSTALLED" >> $GITHUB_OUTPUT
