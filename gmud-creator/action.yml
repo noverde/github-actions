@@ -1,0 +1,362 @@
+name: "Gmud Creator Action"
+description: "Create a Gmud on GLPI"
+
+inputs:
+  glpi_api_url:
+    description: "The base URL of the GLPI API"
+    required: true
+  glpi_app_token:
+    description: "The application token for GLPI"
+    required: true
+  glpi_user_token:
+    description: "The user token for GLPI"
+    required: true
+  slack_bot_user_oauth_access_token:
+    description: "Slack Bot User OAuth Access Token for sending notifications"
+    required: true
+  slack_channel:
+    description: "Slack channel to send notifications"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate GLPI_API_URL format
+      shell: bash
+      run: |
+        if [[ ! "$GLPI_API_URL" =~ ^https?:// ]]; then
+          echo "Error: GLPI_API_URL does not start with http:// or https://"
+          exit 1
+        fi
+        echo "GLPI_API_URL format is valid"
+      env:
+        GLPI_API_URL: ${{ inputs.glpi_api_url }}
+
+    - name: Extract PR Data
+      id: extract-data
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const prBody = context.payload.pull_request.body;
+          const extractSection = (title) => {
+                  const regex = new RegExp(`### ${title}[\\s\\S]*?\\n([\\s\\S]*?)(?=###|$)`);
+                  const match = prBody.match(regex);
+                  return match
+                    ? match[1]
+                        .trim()
+                        .replace(/^- \[.\]|\*|^[\[\]]|[\[\]]$|\[|\]/g, '')
+                        .trim()
+                    : '';
+                };
+
+          function extractResponsible(field) {
+            const regex = new RegExp(`\\*\\*${field}:\\*\\*\\s*\\[(.*?)\\]`, 'i');
+            const match = prBody.match(regex);
+            return (match || [])[1] || 'Não especificado';
+          };
+
+          const changeType =
+            /-\s\[x\]\s\*\*Imediata\*\*/i.test(prBody) ? 'Imediata' :
+            /-\s\[x\]\s\*\*Não Programada\*\*/i.test(prBody) ? 'Não Programada' :
+            /-\s\[x\]\s\*\*Programada\*\*/i.test(prBody) ? 'Programada' : '';
+
+          const tested = /-\s\[x\]\s\*\*Confirmo\*\*/i.test(prBody) ? 'Sim' : 'Não';
+
+          const summary = extractSection('Descrição Resumida');
+          const contxt = extractSection('Contexto');
+          const problem = extractSection('Problema') || 'N/A';
+          const change = extractSection('Mudança Proposta');
+          const impact = extractSection('Descrição de impacto');
+          const task_link = extractSection('Link da Task');
+
+          const dev = extractResponsible('Dev');
+          const tl =  extractResponsible('TL');
+          const team = extractResponsible('Team');
+          const approver = extractSection('Aprovador') || 'Não especificado';
+
+          // Output para os próximos passos
+          core.setOutput('change_type', changeType);
+          core.setOutput('summary', summary);
+          core.setOutput('context', contxt);
+          core.setOutput('problem', problem);
+          core.setOutput('change', change);
+          core.setOutput('dev', dev);
+          core.setOutput('tl', tl);
+          core.setOutput('team', team);
+          core.setOutput('approver', approver);
+          core.setOutput('impact', impact);
+          core.setOutput('task_link', task_link);
+          core.setOutput('pr_url', context.payload.pull_request.html_url);
+          core.setOutput('tested', tested);
+
+    - name: Get PR Approvers
+      id: get-approvers
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const pr_number = context.payload.pull_request.number;
+
+          const reviews = await github.rest.pulls.listReviews({
+            owner,
+            repo,
+            pull_number: pr_number
+          });
+
+          const approverMap = new Map();
+          reviews.data.forEach(review => {
+            if (review.state === 'APPROVED') {
+              approverMap.set(review.user.login, {
+                username: review.user.login,
+                avatar_url: review.user.avatar_url,
+                submitted_at: review.submitted_at
+              });
+            } else if (review.state === 'CHANGES_REQUESTED' || review.state === 'DISMISSED') {
+              approverMap.delete(review.user.login);
+            }
+          });
+
+          const approvers = Array.from(approverMap.values())
+            .sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at));
+
+          let approversList = '';
+          if (approvers.length > 0) {
+            approversList = approvers.map(approver => `• @${approver.username}`).join('\\n');
+          } else {
+            approversList = '• _Nenhum approval encontrado_';
+          }
+
+          core.setOutput('approvers_list', approversList);
+          core.setOutput('approvers_count', approvers.length.toString());
+
+    - name: Create GMUD via API
+      shell: bash
+      env:
+        GLPI_API_URL: ${{ inputs.glpi_api_url }}
+        GLPI_APP_TOKEN: ${{ inputs.glpi_app_token }}
+        GLPI_USER_TOKEN: ${{ inputs.glpi_user_token }}
+      run: |
+        echo "Initializing GLPI session at \$GLPI_API_URL/initSession"
+        SESSION_RESPONSE=$(curl -s -w "%{http_code}" --max-time 10 -X GET \
+          -H "App-Token: $GLPI_APP_TOKEN" \
+          -H "Authorization: user_token $GLPI_USER_TOKEN" \
+          -H "Content-Type: application/json" \
+          "$GLPI_API_URL/initSession" -o session.json 2> session_error.log || echo "Curl failed with exit code $?")
+
+        SESSION_STATUS=${SESSION_RESPONSE##* }
+        echo "Session HTTP Status: $SESSION_STATUS"
+
+        if [ -s session_error.log ]; then
+          echo "Session init error details:"
+          cat session_error.log
+        fi
+
+        if [ ! -f session.json ]; then
+          echo "Error: session.json not created"
+          exit 1
+        fi
+
+        SESSION_TOKEN=$(jq -r '.session_token' session.json 2>/dev/null)
+        if [ -z "$SESSION_TOKEN" ]; then
+          echo "Error: Failed to extract session_token from session.json"
+          cat session.json
+          exit 1
+        fi
+
+        GMUD_CONTENT=$(cat <<EOF
+        <p><strong>Confirmo que foi testado em ambiente de homologação:</strong></p>
+        <p>${{ steps.extract-data.outputs.tested }}</p>
+        <p><strong>Contexto:</strong></p>
+        <p>${{ steps.extract-data.outputs.context }}</p>
+        <br>
+        <p><strong>Problema</strong>:</p>
+        <p>${{ steps.extract-data.outputs.problem }}</p>
+        <br>
+        <p><strong>Mudança:</strong></p>
+        <p>${{ steps.extract-data.outputs.change }}</p>
+        <br>
+        <p><strong>PR(s):</strong></p>
+        <p>${{ steps.extract-data.outputs.pr_url }}</p>
+        <br><br>
+        <p><strong>Link da task no Azure:</strong></p>
+        <p>${{ steps.extract-data.outputs.task_link }}</p>
+        <br><br>
+        <p><strong>Responsáveis:</strong></p>
+        <p>Dev: ${{ steps.extract-data.outputs.dev }}</p>
+        <p>TL:  ${{ steps.extract-data.outputs.tl }}</p>
+        <p>Team: ${{ steps.extract-data.outputs.team }}</p>
+        <br><br>
+        <p><strong>Aprovador:</strong></p>
+        <p>${{ steps.extract-data.outputs.approver }}</p>
+        EOF
+        )
+
+        GMUD_JSON=$(jq -n --arg name "[${{ github.repository }}] - ${{ steps.extract-data.outputs.summary }}" \
+          --arg content "$GMUD_CONTENT" \
+          --arg dev "${{ steps.extract-data.outputs.dev }}" \
+          --arg tl "${{ steps.extract-data.outputs.tl }}" \
+          --arg impact "${{ steps.extract-data.outputs.impact }}" \
+          '{
+            "input": {
+              "name": $name,
+              "content": $content,
+              "type": "change",
+              "status": "1",
+              "impact": "3",
+              "urgency": "3",
+              "itilcategories_id": "1",
+              "devfield": $dev,
+              "qafield": $tl,
+              "rolloutplancontent": "<p>Merge+do+PR+após+aprovação.</p>",
+              "impactcontent": $impact
+            }
+          }')
+
+        echo "GMUD JSON payload:"
+        echo "$GMUD_JSON" | jq . 2>/dev/null || {
+          echo "Error: Invalid JSON payload"
+          echo "$GMUD_JSON"
+          exit 1
+        }
+
+        RESPONSE=$(curl -s -w "%{http_code}" -X POST \
+          -H "App-Token: $GLPI_APP_TOKEN" \
+          -H "Session-Token: $SESSION_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$GMUD_JSON" \
+          "$GLPI_API_URL/Change" -o response.json 2> curl_error.log || echo "Curl failed with exit code $?")
+
+          echo "HTTP Status: $RESPONSE - $GLPI_API_URL"
+
+          if [ -s curl_error.log ]; then
+            echo "Curl error output:"
+            cat curl_error.log
+          fi
+
+          if [ -f response.json ]; then
+            echo "Response content:"
+            cat response.json
+          else
+            echo "Error: response.json was not created"
+            exit 1
+          fi
+
+          if [ -n "$RESPONSE" ] && [ "$RESPONSE" -ge 400 ] 2>/dev/null; then
+            echo "Error: API request failed with status $RESPONSE"
+            exit 1
+          elif [ -z "$RESPONSE" ]; then
+            echo "Error: No HTTP status code returned."
+            exit 1
+          fi
+
+    - name: Extract GLPI GMUD ID
+      id: glpi-id
+      shell: bash
+      run: |
+        if [ -f response.json ]; then
+          GMUD_ID=$(jq -r '.id' response.json)
+          echo "GMUD_ID=$GMUD_ID" >> $GITHUB_OUTPUT
+          echo "GLPI GMUD ID: $GMUD_ID"
+        else
+          echo "Error: response.json not found"
+          exit 1
+        fi
+
+    - name: Build Slack blocks payload
+      id: build-slack-blocks
+      shell: bash
+      run: |
+        jq -n \
+          --arg repo "${{ github.repository }}" \
+          --arg change_type "${{ steps.extract-data.outputs.change_type }}" \
+          --arg summary "${{ steps.extract-data.outputs.summary }}" \
+          --arg dev "${{ steps.extract-data.outputs.dev }}" \
+          --arg tl "${{ steps.extract-data.outputs.tl }}" \
+          --arg team "${{ steps.extract-data.outputs.team }}" \
+          --arg approvers_count "${{ steps.get-approvers.outputs.approvers_count }}" \
+          --arg approvers_list "${{ steps.get-approvers.outputs.approvers_list }}" \
+          --arg gmud_id "${{ steps.glpi-id.outputs.GMUD_ID }}" \
+          --arg pr_url "${{ steps.extract-data.outputs.pr_url }}" \
+          '[
+            {
+              "type": "header",
+              "text": {
+                "type": "plain_text",
+                "text": "📢 Nova GMUD Criada 📢",
+                "emoji": true
+              }
+            },
+            {
+              "type": "section",
+              "fields": [
+                {
+                  "type": "mrkdwn",
+                  "text": ("*Repositório:*\n" + $repo)
+                },
+                {
+                  "type": "mrkdwn",
+                  "text": ("*Tipo de Mudança:*\n" + $change_type)
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": ("*Descrição:*\n" + $summary)
+              }
+            },
+            {
+              "type": "section",
+              "fields": [
+                {
+                  "type": "mrkdwn",
+                  "text": ("*Responsáveis:*\n• *Dev:* " + $dev + "\n• *TL:* " + $tl + "\n• *Team:* " + $team)
+                },
+                {
+                  "type": "mrkdwn",
+                  "text": ("*Aprovadores (" + $approvers_count + "):*\n" + $approvers_list)
+                }
+              ]
+            },
+            {
+              "type": "divider"
+            },
+            {
+              "type": "actions",
+              "elements": [
+                {
+                  "type": "button",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Abrir no GLPI",
+                    "emoji": true
+                  },
+                  "url": ("https://suporte.dotz.com.br/front/change.form.php?id=" + $gmud_id),
+                  "style": "primary"
+                },
+                {
+                  "type": "button",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Ver PR no GitHub",
+                    "emoji": true
+                  },
+                  "url": $pr_url
+                }
+              ]
+            }
+          ]' > slack_blocks.json
+
+        BLOCKS=$(jq -c . slack_blocks.json)
+        BLOCKS=${BLOCKS//'%'/'%25'}
+        BLOCKS=${BLOCKS//$'\n'/'%0A'}
+        BLOCKS=${BLOCKS//$'\r'/'%0D'}
+        echo "blocks=$BLOCKS" >> "$GITHUB_OUTPUT"
+
+    - name: Send GMUD payload notification
+      uses: archive/github-actions-slack@v2.9.0
+      with:
+        slack-bot-user-oauth-access-token: ${{ inputs.slack_bot_user_oauth_access_token }}
+        slack-channel: ${{ inputs.slack_channel }}
+        slack-blocks: ${{ steps.build-slack-blocks.outputs.blocks }}
